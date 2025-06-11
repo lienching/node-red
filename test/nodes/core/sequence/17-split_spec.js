@@ -1842,6 +1842,37 @@ describe('JOIN node', function() {
          });
     });
 
+    it('should clear old pending callbacks when overwriting a pending message', function(done) {
+        function mapiDoneJoinTestHelper(done, joinNodeSetting, msgAndTimings) {
+            const completeNode = require("nr-test-utils").require("@node-red/nodes/core/common/24-complete.js");
+            const catchNode = require("nr-test-utils").require("@node-red/nodes/core/common/25-catch.js");
+            const flow = [
+                { ...joinNodeSetting, id: "joinNode1", type:"join", wires: [[]]},
+                { id: "completeNode1", type: "complete", scope: ["joinNode1"], uncaught: false, wires: [["helperNode1"]] },
+                { id: "catchNode1", type: "catch", scope: ["joinNode1"], uncaught: false, wires: [["helperNode1"]] },
+                { id: "helperNode1", type: "helper", wires: [[]] }];
+            const numMsgs = msgAndTimings.length;
+            helper.load([joinNode, completeNode, catchNode], flow, function () {
+                const joinNode1 = helper.getNode("joinNode1");
+                const helperNode1 = helper.getNode("helperNode1");
+                let c = 0;
+                helperNode1.on("input", function () {
+                    c += 1;
+                    if (c === numMsgs) {
+                        done();
+                    }
+                });
+                msgAndTimings.forEach(function(m) { joinNode1.receive(m.msg); });
+            });
+        }
+        mapiDoneJoinTestHelper(done, {mode:"custom", build:"object", key:"topic", count:2}, [
+            {msg:{seq:0, payload:{v:1}, topic:"event1"}},
+            {msg:{seq:1, payload:{v:2}, topic:"event1"}},
+            {msg:{seq:2, payload:{v:3}, topic:"event1"}},
+            {msg:{seq:3, payload:{v:1}, topic:"event2"}}
+        ]);
+    });
+
     describe('messaging API', function() {
         function mapiDoneSplitTestHelper(done, splt, spltType, stream, msgAndTimings) {
             const completeNode = require("nr-test-utils").require("@node-red/nodes/core/common/24-complete.js");
